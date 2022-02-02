@@ -2,7 +2,7 @@
 
 from os import makedirs
 from typing import List
-from gidocgen.gir.ast import Class
+from gidocgen.gir.ast import Class, Interface
 from gidocgen.gir.parser import GirParser
 from os.path import isdir
 
@@ -31,8 +31,13 @@ class GirLib:
 
     def extract_methods(self, cls) -> str:
         stub = ''
+        methods = cls.methods
+        clsmethods = (
+            list(cls.constructors) if hasattr(cls, 'constructors') else []
+        )
+        clsmethods.extend(cls.functions)
         # methods
-        for method in cls.methods:
+        for method in methods:
             if not method or not method.name:
                 continue
             if method.name == 'continue':
@@ -44,8 +49,6 @@ class GirLib:
             stub += '        ...\n\n'
 
         # class methods / static methods / constructors / functions
-        clsmethods = list(cls.constructors)
-        clsmethods.extend(cls.functions)
         for method in clsmethods:
             if not method or not method.name:
                 continue
@@ -80,46 +83,46 @@ class GirLib:
             # for multiple inheritance
             # stub += cls.name + '(' + ', '.join([anc.name for anc in cls.ancestors]) + ')'
             stub += cls.name
+            properties = list(cls.properties.keys())
+            inherits = []
             if len(cls.ancestors) > 0:
-                ancestor = cls.ancestors[0]
-                assert(isinstance(ancestor, Class))
-                stub += ((
-                    '(' + (ancestor.name or 'Object') + ')'
-                ) if ancestor is not None else '') + ':\n'
-                stub += '    def __init__(self, ' + ', '.join(
-                    [
-                        prop.replace('-', '_') + '=None'
-                        for prop in cls.properties.keys()
-                    ] +
-                    [
-                        prop.replace('-', '_') + '=None'
-                        for prop in (
-                            ancestor.properties.keys() if ancestor else []
-                        )
-                    ]
-                ) + '):\n'
+                assert(isinstance(cls.ancestors[0], Class))
+                properties.extend(cls.ancestors[0].properties.keys())
+                inherits.append(cls.ancestors[0].name)
+            for iface in cls.implements:
+                assert(isinstance(iface, Interface))
+                properties.extend(iface.properties.keys())
+                inherits.append(iface.name)
+            properties = [prop.replace('-', '_') for prop in properties]
+            if len(inherits) > 0:
+                stub += '(' + ', '.join(inherits) + '):\n'
             else:
                 stub += ':\n'
-                stub += '    def __init__(self,' + ', '.join([
-                    prop.replace('-', '_') + '=None'
-                    for prop in cls.properties.keys()
-                ]) + '):\n'
-            stub += '        ...\n\n'
+            stub += '    def __init__(self, ' + ', '.join([
+                f'{prop}=None' for prop in properties
+            ]) + '):\n        ...\n\n'
             stub += self.extract_methods(cls)
 
-        # unions, and records
+        # unions, records, interfaces
         records = repo.namespace.get_records()
         unions = repo.namespace.get_unions()
-        for structs in (records, unions):
+        interfaces = repo.namespace.get_interfaces()
+        for structs in (records, unions, interfaces):
             for struct in structs:
-                if not struct or not struct.name or (
+                if not struct or not struct.name:
+                    continue
+                stub += f'class {struct.name}:\n'
+                if (
                         len(struct.fields) <= 0 and
                         len(struct.methods) <= 0 and
-                        len(struct.constructors) <= 0 and
+                        (
+                            not hasattr(struct, 'constructors') or
+                            len(struct.constructors) <= 0
+                        ) and
                         len(struct.functions) <= 0
                 ):
+                    stub += '    ...\n\n'
                     continue
-                stub += 'class ' + struct.name + ':\n'
                 # fields
                 for field in struct.fields:
                     if not field or not field.name:
