@@ -39,6 +39,8 @@ class GirLib:
         if len(self.imports) > 0:
             stub += 'from gi.repository import ' + ', '.join(self.imports)
             stub += '\n\n\n'
+
+        # classes
         for cls in repo.namespace.get_classes():
             if not cls.name:
                 continue
@@ -75,11 +77,22 @@ class GirLib:
                 if not method or not method.name:
                     continue
                 stub += '    def ' + method.name + '(self, ' + ', '.join([
-                    param.name
+                    ('*args' if param.name == '...' else param.name)
                     for param in method.parameters if param.name
                 ]) + '):\n'
                 stub += '        ...\n\n'
-            stub += '\n\n\n'
+            stub += '\n\n'
+
+        # enums
+        enums = list(repo.namespace.get_enumerations())
+        enums.extend(repo.namespace.get_bitfields())
+        for enum in enums:
+            if not enum or not enum.name:
+                continue
+            stub += 'class ' + enum.name + ':\n'
+            for member in enum.members:
+                stub += f'    {member.name.upper()} = {member.value}\n'
+            stub += '\n\n'
 
         self.write(stub)
 
