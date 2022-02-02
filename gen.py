@@ -29,6 +29,38 @@ class GirLib:
         with open(self.dest, 'w') as fd:
             fd.write(stub)
 
+    def extract_methods(self, cls) -> str:
+        stub = ''
+        # methods
+        for method in cls.methods:
+            if not method or not method.name:
+                continue
+            if method.name == 'continue':
+                continue
+            stub += '    def ' + method.name + '(self, ' + ', '.join([
+                ('*args' if param.name == '...' else param.name)
+                for param in method.parameters if param.name
+            ]) + '):\n'
+            stub += '        ...\n\n'
+
+        # class methods / static methods / constructors / functions
+        clsmethods = list(cls.constructors)
+        clsmethods.extend(cls.functions)
+        for method in clsmethods:
+            if not method or not method.name:
+                continue
+            if method.name == 'continue':
+                continue
+            stub += '    @classmethod\n'
+            stub += '    def ' + method.name + '(cls, ' + ', '.join([
+                ('*args' if param.name == '...' else param.name)
+                for param in method.parameters if param.name
+            ]) + '):\n'
+            stub += '        ...\n\n'
+
+        stub += '\n\n'
+        return stub
+
     def gen(self):
         parser = GirParser([GIR_DIR])
         parser.parse(self.girpath)
@@ -73,30 +105,28 @@ class GirLib:
                     for prop in cls.properties.keys()
                 ]) + '):\n'
             stub += '        ...\n\n'
-            # methods
-            for method in cls.methods:
-                if not method or not method.name:
-                    continue
-                stub += '    def ' + method.name + '(self, ' + ', '.join([
-                    ('*args' if param.name == '...' else param.name)
-                    for param in method.parameters if param.name
-                ]) + '):\n'
-                stub += '        ...\n\n'
+            stub += self.extract_methods(cls)
 
-            # class methods / static methods / constructors / functions
-            clsmethods = list(cls.constructors)
-            clsmethods.extend(cls.functions)
-            for method in clsmethods:
-                if not method or not method.name:
+        # unions, and records
+        records = repo.namespace.get_records()
+        unions = repo.namespace.get_unions()
+        for structs in (records, unions):
+            for struct in structs:
+                if not struct or not struct.name or (
+                        len(struct.fields) <= 0 and
+                        len(struct.methods) <= 0 and
+                        len(struct.constructors) <= 0 and
+                        len(struct.functions) <= 0
+                ):
                     continue
-                stub += '    @classmethod\n'
-                stub += '    def ' + method.name + '(cls, ' + ', '.join([
-                    ('*args' if param.name == '...' else param.name)
-                    for param in method.parameters if param.name
-                ]) + '):\n'
-                stub += '        ...\n\n'
-
-            stub += '\n\n'
+                stub += 'class ' + struct.name + ':\n'
+                # fields
+                for field in struct.fields:
+                    if not field or not field.name:
+                        continue
+                    stub += '    ' + field.name + ' = ...\n'
+                # methods
+                stub += self.extract_methods(struct)
 
         # enums
         enums = list(repo.namespace.get_enumerations())
