@@ -1,13 +1,40 @@
 #!/usr/bin/env python3
 
 from os import makedirs
-from typing import List
-from gidocgen.gir.ast import Class, Interface
+from typing import List, Optional, Union as TUnion
+from gidocgen.gir.ast import (
+    ArrayType, Class, GIRElement, Interface, ListType, Type, Union, Record
+)
 from gidocgen.gir.parser import GirParser
 from os.path import isdir
 
 
 GIR_DIR = '/usr/share/gir-1.0'
+
+TYPES_MAP = {
+    'utf8': 'str',
+    'filename': 'str',
+    'gunichar': 'str',
+    'gboolean': 'bool',
+    'none': None,
+    'double': 'float',
+    'float': 'float',
+    'int': 'int',
+    'guint': 'int',
+    'guint8': 'int',
+    'guint16': 'int',
+    'gint8': 'int',
+    'gint16': 'int',
+    'gint64': 'int',
+    'gsize': 'int',
+    'gssize': 'int',
+}
+
+TYPE_UNKNOWN = '-99999'
+
+LEN_NAME_FRAGMENTS = [
+    'n_', 'num_', 'size', 'len'
+]
 
 
 class GirLib:
@@ -17,11 +44,12 @@ class GirLib:
         self.girpath = f'{GIR_DIR}/{self.girname}.gir'
         # IE: 'gi.repository.Gtk'
         self.package = package
+        self.libname = self.package.split('.')[-1]
         # IE: ['Gdk', 'Gio', 'GLib']
         self.imports = imports
 
         self.dest_dir = './out/' + '/'.join(self.package.split('.')[:-1])
-        self.dest = f'{self.dest_dir}/{self.package.split(".")[-1]}.pyi'
+        self.dest = f'{self.dest_dir}/{self.libname}.pyi'
 
     def write(self, stub: str):
         if not isdir(self.dest_dir):
@@ -29,7 +57,26 @@ class GirLib:
         with open(self.dest, 'w') as fd:
             fd.write(stub)
 
-    def extract_methods(self, cls) -> str:
+    def type_to_pytype(self, typ: Optional[GIRElement], dbg=False) -> Optional[str]:
+        if not typ:
+            return None
+        if isinstance(typ, Type):
+            if not typ.name:
+                return None
+            res = TYPES_MAP.get(typ.name, TYPE_UNKNOWN)
+            if res == TYPE_UNKNOWN:
+                if f'{self.libname}.' in typ.name:
+                    return typ.name.removeprefix(f'{self.libname}.')
+                return typ.name
+            return res
+        elif isinstance(typ, ArrayType):
+            return f'Array[{self.type_to_pytype(typ.value_type)}]'
+        elif isinstance(typ, ListType):
+            return f'List[{self.type_to_pytype(typ.value_type)}]'
+
+    def extract_methods(
+            self, cls: TUnion[Class, Union, Interface, Record]
+    ) -> str:
         stub = ''
         methods = cls.methods
         clsmethods = (
@@ -40,12 +87,27 @@ class GirLib:
         for method in methods:
             if not method or not method.name:
                 continue
-            if method.name == 'continue':
-                continue
-            stub += '    def ' + method.name + '(self, ' + ', '.join([
+            return_type = self.type_to_pytype(
+                method.return_value.target
+                if method.return_value else None
+            )
+            params = [
                 ('*args' if param.name == '...' else param.name)
-                for param in method.parameters if param.name
-            ]) + '):\n'
+                for param in method.parameters if param.name and
+                param.name not in ['argc']
+            ]
+            if return_type and 'Array[' in return_type:
+                params = [p for p in params if len([
+                    npn for npn in LEN_NAME_FRAGMENTS if npn in p
+                ]) <= 0]
+                return_type = 'List' + return_type.removeprefix('Array')
+            stub += '    def ' + (
+                method.name if method.name != 'continue' else 'continue_'
+            )
+            stub += '(self, ' + ', '.join(params) + ')'
+            if return_type:
+                stub += ' -> ' + return_type
+            stub += ':\n'
             stub += '        ...\n\n'
 
         # class methods / static methods / constructors / functions
@@ -73,7 +135,7 @@ class GirLib:
         stub = ''
         if len(self.imports) > 0:
             stub += 'from gi.repository import ' + ', '.join(self.imports)
-            stub += '\n\n\n'
+        stub += '\nfrom typing import List\n\n\n'
 
         # classes
         for cls in repo.namespace.get_classes():
@@ -102,6 +164,9 @@ class GirLib:
                 f'{prop}=None' for prop in properties
             ]) + '):\n        ...\n\n'
             stub += self.extract_methods(cls)
+            if cls.name == 'Object' and self.libname == 'GObject':
+                stub += '    def emit(self, signal: str, *args):\n'
+                stub += '        ...\n\n'
 
         # unions, records, interfaces
         records = repo.namespace.get_records()
@@ -148,12 +213,15 @@ class GirLib:
 libs = [
     GirLib('GObject-2.0', 'gi.repository.GObject', []),
     GirLib('GLib-2.0', 'gi.repository.GLib', ['GObject']),
-    GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject']),
+    GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
+    GirLib('Pango-1.0', 'gi.repository.Pango', ['GObject']),
     GirLib('Gdk-4.0', 'gi.repository.Gdk', ['Gio', 'GLib', 'GObject']),
     GirLib('GdkPixbuf-2.0', 'gi.repository.GdkPixbuf', [
         'Gdk', 'Gio', 'GLib', 'GObject'
     ]),
-    GirLib('Gtk-4.0', 'gi.repository.Gtk', ['Gdk', 'Gio', 'GLib', 'GObject']),
+    GirLib('Gtk-4.0', 'gi.repository.Gtk', [
+        'Gdk', 'Gio', 'GLib', 'GObject', 'Pango'
+    ]),
     GirLib('Adw-1', 'gi.repository.Adw', [
         'Gdk', 'Gtk', 'Gio', 'GLib', 'GObject'
     ]),
