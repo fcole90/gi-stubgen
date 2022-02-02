@@ -73,6 +73,7 @@ class GirLib:
                     for prop in cls.properties.keys()
                 ]) + '):\n'
             stub += '        ...\n\n'
+            # methods
             for method in cls.methods:
                 if not method or not method.name:
                     continue
@@ -81,6 +82,20 @@ class GirLib:
                     for param in method.parameters if param.name
                 ]) + '):\n'
                 stub += '        ...\n\n'
+
+            # class methods / static methods / constructors / functions
+            clsmethods = list(cls.constructors)
+            clsmethods.extend(cls.functions)
+            for method in clsmethods:
+                if not method or not method.name:
+                    continue
+                stub += '    @classmethod\n'
+                stub += '    def ' + method.name + '(cls, ' + ', '.join([
+                    ('*args' if param.name == '...' else param.name)
+                    for param in method.parameters if param.name
+                ]) + '):\n'
+                stub += '        ...\n\n'
+
             stub += '\n\n'
 
         # enums
