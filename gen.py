@@ -11,10 +11,11 @@ from os.path import isdir
 
 GIR_DIR = '/usr/share/gir-1.0'
 
-TYPES_MAP = {
+TYPE_MAP = {
     'utf8': 'str',
     'filename': 'str',
     'gunichar': 'str',
+    'char': 'str',
     'gboolean': 'bool',
     'none': None,
     'double': 'float',
@@ -23,11 +24,19 @@ TYPES_MAP = {
     'guint': 'int',
     'guint8': 'int',
     'guint16': 'int',
+    'guint32': 'int',
+    'guint64': 'int',
     'gint8': 'int',
     'gint16': 'int',
+    'gint32': 'int',
     'gint64': 'int',
     'gsize': 'int',
     'gssize': 'int',
+    'long': 'int',
+    'GLib.DateDay': 'int',
+    'GLib.DateYear': 'int',
+    'GLib.TimeSpan': 'int',
+    'gpointer': 'object'
 }
 
 TYPE_UNKNOWN = '-99999'
@@ -35,6 +44,118 @@ TYPE_UNKNOWN = '-99999'
 LEN_NAME_FRAGMENTS = [
     'n_', 'num_', 'size', 'len'
 ]
+
+
+class GSGField:
+    def __init__(self, name: str, value: str = '...'):
+        self.name = name
+        self.value = value
+
+    def to_str(self, indent: int = 1) -> str:
+        return (indent * '    ') + f'{self.name} = {self.value}'
+
+
+class GSGParam:
+    def __init__(
+            self, name: str, module: str, typ: Optional[str] = None,
+            default: Optional[str] = None
+    ):
+        self.name = name.replace('-', '_')
+        self.typ = typ
+        if self.typ and f'{module}.' in self.typ:
+            self.typ = self.typ.removeprefix(f'{module}.')
+        self.default = default
+        if self.name == '...':
+            self.name = '*args'
+            self.typ = None
+            self.default = None
+
+    def to_str(self) -> str:
+        return self.name + (
+            f': {self.typ}' if self.typ else ''
+        ) + (
+            f' = {self.default}' if self.default else ''
+        )
+
+
+class GSGMethod:
+    def __init__(
+            self, name: str, params: List[GSGParam], module: str,
+            ret_typ: Optional[str] = None, static: bool = False
+    ):
+        self.name = name + ('_' if name in (
+            'continue', 'yield'
+        ) else '')
+        self.params = params
+        self.ret_typ = ret_typ
+        if self.ret_typ and f'{module}.' in self.ret_typ:
+            self.ret_typ = self.ret_typ.removeprefix(f'{module}.')
+        self.static = static
+
+    def to_str(self, indent: int = 1) -> str:
+        params = ['cls' if self.static else 'self'] + [
+            p.to_str() for p in self.params
+        ]
+        return (indent * '    ') + (
+            ('@classmethod\n' + (indent * '    ')) if self.static else ''
+        ) + (
+            f'def {self.name}('
+        ) + (
+            ', '.join(params)
+        ) + ')' + (
+            f' -> {self.ret_typ}' if self.ret_typ else ''
+        ) + ':\n' + ((indent+1) * '    ') + '...'
+
+
+class GSGClass:
+    def __init__(
+            self, name: str, methods: List[GSGMethod], module: str,
+            ancestors: List[str] = [], fields: List[GSGField] = []
+    ):
+        self.name = name
+        self.methods = methods
+        self.module = module
+        self.ancestors = [
+            anc.removeprefix(f'{module}.') if f'{module}.' in anc else anc
+            for anc in ancestors
+        ]
+        self.fields = fields
+        self.manage_special_cases()
+
+    def to_str(self, indent: int = 0) -> str:
+        res = (indent * '    ') + f'class {self.name}' + (
+            f'({", ".join(self.ancestors)})'
+            if len(self.ancestors) > 0 else ''
+        ) + ':\n'
+        if len(self.methods) <= 0 and len(self.fields) <= 0:
+            res += ((indent+1) * '    ') + '...'
+            return res
+        res += '\n'.join([f.to_str(indent+1) for f in self.fields])
+        res += (
+            '\n\n' if len(self.fields) > 0 else ''
+        ) + '\n\n'.join(
+            [m.to_str(indent+1) for m in self.methods]
+        )
+        return res
+
+    def manage_special_cases(self):
+        if self.module == 'GLib':
+            if self.name == 'Hook':
+                self.methods = [
+                    m for m in self.methods
+                    if m.name != 'destroy'
+                ]
+            elif self.name == 'MainContext':
+                self.methods = [
+                    m for m in self.methods
+                    if m.name != 'get_poll_func'
+                ]
+        if self.module == 'GObject':
+            if self.name == 'Object':
+                self.methods += [GSGMethod('emit', [
+                    GSGParam('signal', self.module, 'str'),
+                    GSGParam('*args', self.module)
+                ], self.module)]
 
 
 class GirLib:
@@ -57,13 +178,13 @@ class GirLib:
         with open(self.dest, 'w') as fd:
             fd.write(stub)
 
-    def type_to_pytype(self, typ: Optional[GIRElement], dbg=False) -> Optional[str]:
+    def type_to_pytype(self, typ: Optional[GIRElement]) -> Optional[str]:
         if not typ:
             return None
         if isinstance(typ, Type):
             if not typ.name:
                 return None
-            res = TYPES_MAP.get(typ.name, TYPE_UNKNOWN)
+            res = TYPE_MAP.get(typ.name, TYPE_UNKNOWN)
             if res == TYPE_UNKNOWN:
                 if f'{self.libname}.' in typ.name:
                     return typ.name.removeprefix(f'{self.libname}.')
@@ -76,11 +197,11 @@ class GirLib:
 
     def extract_methods(
             self, cls: TUnion[Class, Union, Interface, Record]
-    ) -> str:
-        stub = ''
+    ) -> List[GSGMethod]:
+        res = list()
         methods = cls.methods
         clsmethods = (
-            list(cls.constructors) if hasattr(cls, 'constructors') else []
+            list(cls.constructors) if not isinstance(cls, Interface) else []
         )
         clsmethods.extend(cls.functions)
         # methods
@@ -92,8 +213,7 @@ class GirLib:
                 if method.return_value else None
             )
             params = [
-                ('*args' if param.name == '...' else param.name)
-                for param in method.parameters if param.name and
+                param.name for param in method.parameters if param.name and
                 param.name not in ['argc']
             ]
             if return_type and 'Array[' in return_type:
@@ -101,30 +221,26 @@ class GirLib:
                     npn for npn in LEN_NAME_FRAGMENTS if npn in p
                 ]) <= 0]
                 return_type = 'List' + return_type.removeprefix('Array')
-            stub += '    def ' + (
-                method.name if method.name != 'continue' else 'continue_'
-            )
-            stub += '(self, ' + ', '.join(params) + ')'
-            if return_type:
-                stub += ' -> ' + return_type
-            stub += ':\n'
-            stub += '        ...\n\n'
+            if return_type and 'List[' in return_type:
+                return_type = 'Py' + return_type
+            res.append(GSGMethod(
+                method.name,
+                [GSGParam(param, self.libname) for param in params],
+                self.libname, return_type
+            ))
 
         # class methods / static methods / constructors / functions
         for method in clsmethods:
             if not method or not method.name:
                 continue
-            if method.name == 'continue':
-                continue
-            stub += '    @classmethod\n'
-            stub += '    def ' + method.name + '(cls, ' + ', '.join([
-                ('*args' if param.name == '...' else param.name)
-                for param in method.parameters if param.name
-            ]) + '):\n'
-            stub += '        ...\n\n'
+            res.append(GSGMethod(
+                method.name, [
+                    GSGParam(param.name, self.libname)
+                    for param in method.parameters if param.name
+                ], self.libname, static=True
+            ))
 
-        stub += '\n\n'
-        return stub
+        return res
 
     def gen(self):
         parser = GirParser([GIR_DIR])
@@ -135,16 +251,15 @@ class GirLib:
         stub = ''
         if len(self.imports) > 0:
             stub += 'from gi.repository import ' + ', '.join(self.imports)
-        stub += '\nfrom typing import List\n\n\n'
+        stub += '\nfrom enum import Enum\n'
+        stub += '\nfrom typing import List as PyList\n\n\n'
+
+        gsg_classes = list()
 
         # classes
         for cls in repo.namespace.get_classes():
             if not cls.name:
                 continue
-            stub += 'class '
-            # for multiple inheritance
-            # stub += cls.name + '(' + ', '.join([anc.name for anc in cls.ancestors]) + ')'
-            stub += cls.name
             properties = list(cls.properties.keys())
             inherits = []
             if len(cls.ancestors) > 0:
@@ -155,18 +270,17 @@ class GirLib:
                 assert(isinstance(iface, Interface))
                 properties.extend(iface.properties.keys())
                 inherits.append(iface.name)
-            properties = [prop.replace('-', '_') for prop in properties]
-            if len(inherits) > 0:
-                stub += '(' + ', '.join(inherits) + '):\n'
-            else:
-                stub += ':\n'
-            stub += '    def __init__(self, ' + ', '.join([
-                f'{prop}=None' for prop in properties
-            ]) + '):\n        ...\n\n'
-            stub += self.extract_methods(cls)
-            if cls.name == 'Object' and self.libname == 'GObject':
-                stub += '    def emit(self, signal: str, *args):\n'
-                stub += '        ...\n\n'
+            init = GSGMethod(
+                '__init__', [
+                    GSGParam(prop, self.libname, default='None')
+                    for prop in properties
+                ], self.libname
+            )
+            methods = [init] + self.extract_methods(cls)
+            cls_o = GSGClass(
+                cls.name, methods, self.libname, inherits
+            )
+            gsg_classes.append(cls_o)
 
         # unions, records, interfaces
         records = repo.namespace.get_records()
@@ -176,25 +290,14 @@ class GirLib:
             for struct in structs:
                 if not struct or not struct.name:
                     continue
-                stub += f'class {struct.name}:\n'
-                if (
-                        len(struct.fields) <= 0 and
-                        len(struct.methods) <= 0 and
-                        (
-                            not hasattr(struct, 'constructors') or
-                            len(struct.constructors) <= 0
-                        ) and
-                        len(struct.functions) <= 0
-                ):
-                    stub += '    ...\n\n'
-                    continue
-                # fields
-                for field in struct.fields:
-                    if not field or not field.name:
-                        continue
-                    stub += '    ' + field.name + ' = ...\n'
-                # methods
-                stub += self.extract_methods(struct)
+                struct_o = GSGClass(
+                    struct.name, self.extract_methods(struct), self.libname,
+                    fields=[
+                        GSGField(f.name)
+                        for f in struct.fields if f and f.name
+                    ]
+                )
+                gsg_classes.append(struct_o)
 
         # enums
         enums = list(repo.namespace.get_enumerations())
@@ -202,17 +305,21 @@ class GirLib:
         for enum in enums:
             if not enum or not enum.name:
                 continue
-            stub += 'class ' + enum.name + ':\n'
-            for member in enum.members:
-                stub += f'    {member.name.upper()} = {member.value}\n'
-            stub += '\n\n'
+            enum_o = GSGClass(
+                enum.name, [], self.libname, fields=[
+                    GSGField(member.name.upper(), member.value)
+                    for member in enum.members if member and member.name
+                ], ancestors=['Enum']
+            )
+            gsg_classes.append(enum_o)
 
+        stub += '\n\n\n'.join([cls.to_str() for cls in gsg_classes])
         self.write(stub)
 
 
 libs = [
-    GirLib('GObject-2.0', 'gi.repository.GObject', []),
-    GirLib('GLib-2.0', 'gi.repository.GLib', ['GObject']),
+    GirLib('GLib-2.0', 'gi.repository.GLib', []),
+    GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib']),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
     GirLib('Pango-1.0', 'gi.repository.Pango', ['GObject']),
     GirLib('Gdk-4.0', 'gi.repository.Gdk', ['Gio', 'GLib', 'GObject']),
