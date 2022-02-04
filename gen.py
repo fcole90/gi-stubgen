@@ -78,10 +78,10 @@ class GSGParam:
         )
 
 
-class GSGMethod:
+class GSGFunction:
     def __init__(
-            self, name: str, params: List[GSGParam], module: str,
-            ret_typ: Optional[str] = None, static: bool = False
+        self, name: str, params: List[GSGParam], module: str,
+        ret_typ: Optional[str] = None
     ):
         self.name = name + ('_' if name in (
             'continue', 'yield'
@@ -90,21 +90,30 @@ class GSGMethod:
         self.ret_typ = ret_typ
         if self.ret_typ and f'{module}.' in self.ret_typ:
             self.ret_typ = self.ret_typ.removeprefix(f'{module}.')
-        self.static = static
 
-    def to_str(self, indent: int = 1) -> str:
-        params = ['cls' if self.static else 'self'] + [
-            p.to_str() for p in self.params
-        ]
+    def to_str(self, indent: int = 0) -> str:
         return (indent * '    ') + (
-            ('@classmethod\n' + (indent * '    ')) if self.static else ''
-        ) + (
             f'def {self.name}('
-        ) + (
-            ', '.join(params)
-        ) + ')' + (
+        ) + ', '.join([p.to_str() for p in self.params]) + ')' + (
             f' -> {self.ret_typ}' if self.ret_typ else ''
         ) + ':\n' + ((indent+1) * '    ') + '...'
+
+
+class GSGMethod(GSGFunction):
+    def __init__(
+            self, name: str, params: List[GSGParam], module: str,
+            ret_typ: Optional[str] = None, static: bool = False
+    ):
+        self.static = static
+        params.insert(0, GSGParam(
+            'cls' if self.static else 'self', module
+        ))
+        super().__init__(name, params, module, ret_typ)
+
+    def to_str(self, indent: int = 1) -> str:
+        return (
+            ((indent * '    ') + '@classmethod\n') if self.static else ''
+        ) + super().to_str(indent)
 
 
 class GSGClass:
