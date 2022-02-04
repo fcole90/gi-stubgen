@@ -159,7 +159,10 @@ class GSGClass:
 
 
 class GirLib:
-    def __init__(self, girname: str, package: str, imports: List[str] = []):
+    def __init__(
+            self, girname: str, package: str, imports: List[str] = [],
+            additional_code: str = ''
+    ):
         # IE: 'Gtk-4.0'
         self.girname = girname
         self.girpath = f'{GIR_DIR}/{self.girname}.gir'
@@ -171,6 +174,8 @@ class GirLib:
 
         self.dest_dir = './out/' + '/'.join(self.package.split('.')[:-1])
         self.dest = f'{self.dest_dir}/{self.libname}.pyi'
+
+        self.additional_code = additional_code
 
     def write(self, stub: str):
         if not isdir(self.dest_dir):
@@ -314,12 +319,44 @@ class GirLib:
             gsg_classes.append(enum_o)
 
         stub += '\n\n\n'.join([cls.to_str() for cls in gsg_classes])
-        self.write(stub)
+        stub += '\n\n\n' + self.additional_code
+        self.write(stub.strip())
+
+
+GOBJECT_ADDITIONAL = '''
+class Property:
+    class __metaclass__(type):
+        ...
+
+    def __init__(self, getter=None, setter=None, type=None, default=None,
+                 nick='', blurb='', flags=_gi.PARAM_READWRITE,
+                 minimum=None, maximum=None):
+        ...
+
+    def __get__(self, instance, klass):
+        ...
+
+    def __set__(self, instance, value):
+        ...
+
+    def __call__(self, fget):
+        ...
+
+    def getter(self, fget):
+        ...
+
+    def setter(self, fset):
+        ...
+
+    def get_pspec_args(self):
+        ...
+'''
 
 
 libs = [
     GirLib('GLib-2.0', 'gi.repository.GLib', []),
-    GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib']),
+    GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib'],
+           GOBJECT_ADDITIONAL),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
     GirLib('Pango-1.0', 'gi.repository.Pango', ['GObject']),
     GirLib('Gdk-4.0', 'gi.repository.Gdk', ['Gio', 'GLib', 'GObject']),
