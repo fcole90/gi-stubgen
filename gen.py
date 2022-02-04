@@ -360,6 +360,14 @@ class GirLib:
 
         stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
 
+        # constants
+        constants = [
+            GSGField(c.name, c.value).to_str(indent=0)
+            for c in repo.namespace.get_constants() if c and c.name
+        ]
+
+        stub += '\n\n\n' + '\n'.join(constants)
+
         stub += '\n\n\n' + self.additional_code
         self.write(stub.strip())
 
