@@ -227,19 +227,25 @@ class GirLib:
                 if method.return_value else None
             )
             params = [
-                param.name for param in method.parameters if param.name and
+                param for param in method.parameters if param.name and
                 param.name not in ['argc']
             ]
             if return_type and 'Array[' in return_type:
-                params = [p for p in params if len([
-                    npn for npn in LEN_NAME_FRAGMENTS if npn in p
+                params = [p for p in params if p.name and len([
+                    npn for npn in LEN_NAME_FRAGMENTS if npn in p.name
                 ]) <= 0]
                 return_type = 'List' + return_type.removeprefix('Array')
             if return_type and 'List[' in return_type:
                 return_type = 'Py' + return_type
             res.append(GSGMethod(
                 method.name,
-                [GSGParam(param, self.libname) for param in params],
+                [
+                    GSGParam(
+                        p.name, self.libname,
+                        typ=('Optional[Any]' if p.nullable else None),
+                        default=('None' if p.optional else None)
+                    ) for p in params if p.name
+                ],
                 self.libname, return_type
             ))
 
@@ -249,8 +255,12 @@ class GirLib:
                 continue
             res.append(GSGMethod(
                 method.name, [
-                    GSGParam(param.name, self.libname)
-                    for param in method.parameters if param.name
+                    GSGParam(
+                        p.name, self.libname,
+                        typ=('Optional[Any]' if p.nullable else None),
+                        default=('None' if p.optional else None)
+                    )
+                    for p in method.parameters if p.name
                 ], self.libname, static=True
             ))
 
@@ -266,7 +276,7 @@ class GirLib:
         if len(self.imports) > 0:
             stub += 'from gi.repository import ' + ', '.join(self.imports)
         stub += '\nfrom enum import Enum\n'
-        stub += '\nfrom typing import List as PyList\n\n\n'
+        stub += '\nfrom typing import Optional, Any, List as PyList\n\n\n'
 
         gsg_classes = list()
 
@@ -328,6 +338,28 @@ class GirLib:
             gsg_classes.append(enum_o)
 
         stub += '\n\n\n'.join([cls.to_str() for cls in gsg_classes])
+
+        # global functions
+        gsg_functions = list()
+        functions = list(repo.namespace.get_functions())
+        for func in functions:
+            if not func or not func.name:
+                continue
+            gsg_functions.append(GSGFunction(
+                func.name, [
+                    GSGParam(
+                        p.name, self.libname,
+                        typ=('Optional[Any]' if p.nullable else None),
+                        default=('None' if p.optional else None)
+                    ) for p in func.parameters if p and p.name
+                ], self.libname, self.type_to_pytype(
+                    func.return_value.target
+                    if func.return_value else None
+                )
+            ))
+
+        stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
+
         stub += '\n\n\n' + self.additional_code
         self.write(stub.strip())
 
@@ -363,7 +395,7 @@ class Property:
 
 
 libs = [
-    GirLib('GLib-2.0', 'gi.repository.GLib', []),
+    GirLib('GLib-2.0', 'gi.repository.GLib', ['GObject']),
     GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib'],
            GOBJECT_ADDITIONAL),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
