@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import importlib
+import inspect
 from os import makedirs
 from typing import List, Optional, Union as TUnion
 from gidocgen.gir.ast import (
@@ -7,6 +9,7 @@ from gidocgen.gir.ast import (
 )
 from gidocgen.gir.parser import GirParser
 from os.path import isdir
+import gi
 
 
 GIR_DIR = '/usr/share/gir-1.0'
@@ -47,12 +50,19 @@ LEN_NAME_FRAGMENTS = [
 
 
 class GSGField:
-    def __init__(self, name: str, value: str = '...'):
+    def __init__(
+            self, name: str, value: str = '...', typ: Optional[str] = None
+    ):
         self.name = name
         self.value = value
+        self.typ = typ
 
     def to_str(self, indent: int = 1) -> str:
-        return (indent * '    ') + f'{self.name} = {self.value}'
+        return (indent * '    ') + '{0}{1} = {2}'.format(
+            self.name,
+            f': {self.typ}' if self.typ else '',
+            self.value
+        )
 
 
 class GSGParam:
@@ -186,6 +196,11 @@ class GirLib:
 
         self.additional_code = additional_code
 
+        gi.require_version(self.libname, self.girname.split('-')[-1])
+        self.module = importlib.import_module(
+            f'.{self.libname}', 'gi.repository'
+        )
+
     def write(self, stub: str):
         if not isdir(self.dest_dir):
             makedirs(self.dest_dir)
@@ -209,10 +224,53 @@ class GirLib:
         elif isinstance(typ, ListType):
             return f'List[{self.type_to_pytype(typ.value_type)}]'
 
+    def get_py_args(
+            self, py_members: list, method_name: str
+    ) -> Optional[List[str]]:
+        py_methods = [
+            t[1] for t in py_members
+            if isinstance(t, tuple) and
+            t[0] == method_name
+        ]
+        if len(py_methods) <= 0:
+            print(
+                f'Error: method {method_name} not found'
+            )
+            return None
+        py_method = py_methods[0]
+        py_args = None
+        try:
+            argspec = inspect.getfullargspec(py_method)
+            py_args = argspec.args
+            if argspec.varargs:
+                py_args.append('*args')
+            if argspec.varkw:
+                py_args.append('**kwargs')
+        except Exception:
+            try:
+                py_args = [
+                    arg.get_name() for arg in py_method.get_arguments()
+                ]
+            except Exception:
+                print(
+                    'Error: cannot list arguments for method {method_name}'
+                )
+        return py_args
+
     def extract_methods(
             self, cls: TUnion[Class, Union, Interface, Record]
     ) -> List[GSGMethod]:
+        assert(cls and cls.name)
         res = list()
+        try:
+            py_cls = getattr(self.module, cls.name)
+        except AttributeError:
+            print(
+                f'Error: can\'t find class {cls.name} '
+                f'in module {self.libname}'
+            )
+            return []
+        py_members = inspect.getmembers(py_cls)
         methods = cls.methods
         clsmethods = (
             list(cls.constructors) if not isinstance(cls, Interface) else []
@@ -222,13 +280,14 @@ class GirLib:
         for method in methods:
             if not method or not method.name:
                 continue
+            py_args = self.get_py_args(py_members, method.name)
             return_type = self.type_to_pytype(
                 method.return_value.target
                 if method.return_value else None
             )
             params = [
                 param for param in method.parameters if param.name and
-                param.name not in ['argc']
+                (not py_args or param.name in py_args)
             ]
             if return_type and 'Array[' in return_type:
                 params = [p for p in params if p.name and len([
@@ -237,15 +296,21 @@ class GirLib:
                 return_type = 'List' + return_type.removeprefix('Array')
             if return_type and 'List[' in return_type:
                 return_type = 'Py' + return_type
+            gsg_params = [
+                GSGParam(
+                    p.name, self.libname,
+                    typ=('Optional[Any]' if p.nullable else None),
+                    default=('None' if p.optional else None)
+                ) for p in params if p.name
+            ]
+            if py_args:
+                for extra in ('*args', '**kwargs'):
+                    if extra in py_args and extra not in [
+                            p.name for p in gsg_params
+                    ]:
+                        gsg_params.append(GSGParam(extra, self.libname))
             res.append(GSGMethod(
-                method.name,
-                [
-                    GSGParam(
-                        p.name, self.libname,
-                        typ=('Optional[Any]' if p.nullable else None),
-                        default=('None' if p.optional else None)
-                    ) for p in params if p.name
-                ],
+                method.name, gsg_params,
                 self.libname, return_type
             ))
 
@@ -253,15 +318,24 @@ class GirLib:
         for method in clsmethods:
             if not method or not method.name:
                 continue
+            py_args = self.get_py_args(py_members, method.name)
+            gsg_params = [
+                GSGParam(
+                    p.name, self.libname,
+                    typ=('Optional[Any]' if p.nullable else None),
+                    default=('None' if p.optional else None)
+                )
+                for p in method.parameters if p.name and
+                (not py_args or p.name in py_args)
+            ]
+            if py_args:
+                for extra in ('*args', '**kwargs'):
+                    if extra in py_args and extra not in [
+                            p.name for p in gsg_params
+                    ]:
+                        gsg_params.append(GSGParam(extra, self.libname))
             res.append(GSGMethod(
-                method.name, [
-                    GSGParam(
-                        p.name, self.libname,
-                        typ=('Optional[Any]' if p.nullable else None),
-                        default=('None' if p.optional else None)
-                    )
-                    for p in method.parameters if p.name
-                ], self.libname, static=True
+                method.name, gsg_params, self.libname, static=True
             ))
 
         return res
@@ -276,7 +350,9 @@ class GirLib:
         if len(self.imports) > 0:
             stub += 'from gi.repository import ' + ', '.join(self.imports)
         stub += '\nfrom enum import Enum\n'
-        stub += '\nfrom typing import Optional, Any, List as PyList\n\n\n'
+        stub += (
+            '\nfrom typing import Optional, Any, Tuple, List as PyList\n\n\n'
+        )
 
         gsg_classes = list()
 
@@ -340,7 +416,7 @@ class GirLib:
         stub += '\n\n\n'.join([cls.to_str() for cls in gsg_classes])
 
         # global functions
-        gsg_functions = list()
+        gsg_functions: List[GSGFunction] = list()
         functions = list(repo.namespace.get_functions())
         for func in functions:
             if not func or not func.name:
@@ -357,6 +433,15 @@ class GirLib:
                     if func.return_value else None
                 )
             ))
+
+        # functions special cases
+        if self.libname == 'Gtk':
+            for func in gsg_functions:
+                if func.name == 'accelerator_parse':
+                    func.params = [GSGParam(
+                        'accelerator', self.libname, 'str'
+                    )]
+                    func.ret_typ = 'Tuple[bool, int, Gdk.ModifierType]'
 
         stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
 
