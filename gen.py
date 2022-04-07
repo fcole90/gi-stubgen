@@ -79,6 +79,8 @@ class GSGParam:
             self.name = '*args'
             self.typ = None
             self.default = None
+        elif self.name == 'user_data' and self.default is None:
+            self.default = 'None'
 
     def to_str(self) -> str:
         return self.name + (
@@ -169,6 +171,9 @@ class GSGClass:
                     m for m in self.methods
                     if m.name != 'get_poll_func'
                 ]
+        if self.module == 'Gio':
+            if self.name == 'ListModel':
+                self.methods += [GSGMethod('__iter__', [], self.module)]
         if self.module == 'GObject':
             if self.name == 'Object':
                 self.methods += [GSGMethod('emit', [
