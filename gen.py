@@ -79,7 +79,10 @@ class GSGParam:
             self.name = '*args'
             self.typ = None
             self.default = None
-        elif self.name == 'user_data' and self.default is None:
+        elif (
+                self.name in ('user_data', 'user_data_free_func')
+                and self.default is None
+        ):
             self.default = 'None'
 
     def to_str(self) -> str:
