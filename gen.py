@@ -178,7 +178,16 @@ class GSGClass:
                 ]
         if self.module == 'Gio':
             if self.name == 'ListModel':
-                self.methods += [GSGMethod('__iter__', [], self.module)]
+                self.methods += [
+                    GSGMethod('__iter__', [], self.module),
+                    GSGMethod(
+                        '__getitem__',
+                        [GSGParam(name='i', typ='int', module=self.module)],
+                        self.module,
+                        ret_typ='GObject.Object'
+                    ),
+                    GSGMethod('__len__', [], self.module),
+                ]
         if self.module == 'GObject':
             if self.name == 'Object':
                 self.methods += [GSGMethod('emit', [
