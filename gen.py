@@ -80,7 +80,9 @@ class GSGParam:
             self.typ = None
             self.default = None
         elif (
-                self.name in ('user_data', 'user_data_free_func')
+                self.name in (
+                    'user_data', 'user_data_free_func', 'user_destroy'
+                )
                 and self.default is None
         ):
             self.default = 'None'
