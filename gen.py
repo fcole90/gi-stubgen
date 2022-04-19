@@ -450,6 +450,24 @@ class GirLib:
                         'accelerator', self.libname, 'str'
                     )]
                     func.ret_typ = 'Tuple[bool, int, Gdk.ModifierType]'
+        if self.libname == 'GLib':
+            for func in gsg_functions:
+                if func.name == 'idle_add':
+                    for gsg_param in func.params:
+                        if gsg_param.name == 'data':
+                            gsg_param.name = '*data'
+                            gsg_param.default = None
+                    func.params.append(GSGParam(
+                        name='priority', module='GLib',
+                        typ=(
+                            'Literal[PRIORITY_DEFAULT, '
+                            'PRIORITY_DEFAULT_IDLE, '
+                            'PRIORITY_HIGH, '
+                            'PRIORITY_HIGH_IDLE, '
+                            'PRIORITY_LOW]'
+                        ),
+                        default='PRIORITY_DEFAULT'
+                    ))
 
         stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
 
@@ -496,7 +514,7 @@ class Property:
 
 
 libs = [
-    GirLib('GLib-2.0', 'gi.repository.GLib', ['GObject']),
+    GirLib('GLib-2.0', 'gi.repository.GLib', []),
     GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib'],
            GOBJECT_ADDITIONAL),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
