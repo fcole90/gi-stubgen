@@ -184,7 +184,7 @@ class GSGClass:
                         '__getitem__',
                         [GSGParam(name='i', typ='int', module=self.module)],
                         self.module,
-                        ret_typ='GObject.Object'
+                        ret_typ='Any'
                     ),
                     GSGMethod('__len__', [], self.module),
                 ]
