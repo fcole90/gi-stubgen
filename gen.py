@@ -176,7 +176,7 @@ class GSGClass:
                     m for m in self.methods
                     if m.name != 'get_poll_func'
                 ]
-        if self.module == 'Gio':
+        elif self.module == 'Gio':
             if self.name == 'ListModel':
                 self.methods += [
                     GSGMethod('__iter__', [], self.module),
@@ -188,13 +188,13 @@ class GSGClass:
                     ),
                     GSGMethod('__len__', [], self.module),
                 ]
-        if self.module == 'GObject':
+        elif self.module == 'GObject':
             if self.name == 'Object':
                 self.methods += [GSGMethod('emit', [
                     GSGParam('signal', self.module, 'str'),
                     GSGParam('*args', self.module)
                 ], self.module)]
-        if self.module == 'Gdk':
+        elif self.module == 'Gdk':
             if self.name == 'Paintable':
                 compute_concrete_size = [
                     m for m in self.methods
