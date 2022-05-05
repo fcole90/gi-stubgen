@@ -80,7 +80,9 @@ class GSGParam:
             self.typ = None
             self.default = None
         elif (
-                self.name in ('user_data', 'user_data_free_func')
+                self.name in (
+                    'user_data', 'user_data_free_func', 'user_destroy'
+                )
                 and self.default is None
         ):
             self.default = 'None'
@@ -176,7 +178,16 @@ class GSGClass:
                 ]
         if self.module == 'Gio':
             if self.name == 'ListModel':
-                self.methods += [GSGMethod('__iter__', [], self.module)]
+                self.methods += [
+                    GSGMethod('__iter__', [], self.module),
+                    GSGMethod(
+                        '__getitem__',
+                        [GSGParam(name='i', typ='int', module=self.module)],
+                        self.module,
+                        ret_typ='Any'
+                    ),
+                    GSGMethod('__len__', [], self.module),
+                ]
         if self.module == 'GObject':
             if self.name == 'Object':
                 self.methods += [GSGMethod('emit', [
@@ -468,6 +479,24 @@ class GirLib:
                         'accelerator', self.libname, 'str'
                     )]
                     func.ret_typ = 'Tuple[bool, int, Gdk.ModifierType]'
+        if self.libname == 'GLib':
+            for func in gsg_functions:
+                if func.name == 'idle_add':
+                    for gsg_param in func.params:
+                        if gsg_param.name == 'data':
+                            gsg_param.name = '*data'
+                            gsg_param.default = None
+                    func.params.append(GSGParam(
+                        name='priority', module='GLib',
+                        typ=(
+                            'Literal[PRIORITY_DEFAULT, '
+                            'PRIORITY_DEFAULT_IDLE, '
+                            'PRIORITY_HIGH, '
+                            'PRIORITY_HIGH_IDLE, '
+                            'PRIORITY_LOW]'
+                        ),
+                        default='PRIORITY_DEFAULT'
+                    ))
 
         stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
 
@@ -512,9 +541,47 @@ class Property:
         ...
 '''
 
+GTK_ADDITIONAL = '''
+from typing import Callable as PyCallable
+
+
+class Template(object):
+    def __init__(self,
+        string: Optional[str] = None, filename: Optional[str] = None,
+        resource_path: Optional[str] = None
+    ):
+        ...
+
+    def __call__(self, cls):
+        ...
+
+    class Callback(object):
+        def __init__(self, name: Optional[str] = None):
+            ...
+
+        def __call__(self, func: PyCallable):
+            ...
+
+    @classmethod
+    def Child(cls, name: Optional[str] = None, **kwargs) -> Any:
+        ...
+
+    @classmethod
+    def from_file(cls, filename: str):
+        ...
+
+    @classmethod
+    def from_string(cls, string: str):
+        ...
+
+    @classmethod
+    def from_resource(cls, resource_path: str):
+        ...
+'''
+
 
 libs = [
-    GirLib('GLib-2.0', 'gi.repository.GLib', ['GObject']),
+    GirLib('GLib-2.0', 'gi.repository.GLib', []),
     GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib'],
            GOBJECT_ADDITIONAL),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
@@ -525,7 +592,7 @@ libs = [
     ]),
     GirLib('Gtk-4.0', 'gi.repository.Gtk', [
         'Gdk', 'Gio', 'GLib', 'GObject', 'Pango'
-    ]),
+    ], GTK_ADDITIONAL),
     GirLib('Adw-1', 'gi.repository.Adw', [
         'Gdk', 'Gtk', 'Gio', 'GLib', 'GObject'
     ]),
