@@ -183,6 +183,24 @@ class GSGClass:
                     GSGParam('signal', self.module, 'str'),
                     GSGParam('*args', self.module)
                 ], self.module)]
+        if self.module == 'Gdk':
+            if self.name == 'Paintable':
+                compute_concrete_size = [
+                    m for m in self.methods
+                    if m.name == 'compute_concrete_size'
+                ][0]
+                self.methods = [
+                    m for m in self.methods
+                    if m.name != 'compute_concrete_size'
+                ]
+                compute_concrete_size.params = [
+                    p for p in compute_concrete_size.params
+                    if p.name not in (
+                        'concrete_width', 'concrete_height'
+                    )
+                ]
+                compute_concrete_size.ret_typ = 'Tuple[float, float]'
+                self.methods.append(compute_concrete_size)
 
 
 class GirLib:
