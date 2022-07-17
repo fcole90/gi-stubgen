@@ -3,7 +3,7 @@ import inspect
 from os import makedirs, path
 from typing import List, Optional, Union as TUnion
 from gidocgen.gir.ast import (
-    ArrayType, Class, GIRElement, Interface, ListType, Type, Union, Record
+    ArrayType, Callable, Class, GIRElement, Interface, ListType, Type, Union, Record
 )
 from gidocgen.gir.parser import GirParser
 from os.path import isdir
@@ -119,11 +119,11 @@ class GirLib:
             )
             return []
         py_members = inspect.getmembers(py_cls)
-        methods = cls.methods
-        clsmethods = (
-            list(cls.constructors) if not isinstance(cls, Interface) else []
+        methods: List[Callable] = cls.methods  # type: ignore
+        clsmethods: List[Callable] = (
+            list(cls.constructors) if not isinstance(cls, Interface) else []  # type: ignore
         )
-        clsmethods.extend(cls.functions)
+        clsmethods.extend(cls.functions)  # type: ignore
         # methods
         for method in methods:
             if not method or not method.name:
@@ -146,7 +146,8 @@ class GirLib:
                 return_type = 'Py' + return_type
             gsg_params = [
                 GSGParam(
-                    p.name, self.libname,
+                    p.name, 
+                    self.libname,
                     typ=('Optional[Any]' if p.nullable else None),
                     default=('None' if p.optional else None)
                 ) for p in params if p.name
@@ -157,9 +158,13 @@ class GirLib:
                             p.name for p in gsg_params
                     ]:
                         gsg_params.append(GSGParam(extra, self.libname))
-            res.append(GSGMethod(
-                method.name, gsg_params,
-                self.libname, return_type
+            res.append(
+                GSGMethod(
+                    method.name,
+                    gsg_params,
+                    self.libname,
+                    return_type,
+                    docstring= "" if method.doc is None else method.doc.content
             ))
 
         # class methods / static methods / constructors / functions
@@ -182,15 +187,21 @@ class GirLib:
                             p.name for p in gsg_params
                     ]:
                         gsg_params.append(GSGParam(extra, self.libname))
-            res.append(GSGMethod(
-                method.name, gsg_params, self.libname, static=True
-            ))
+            res.append(
+                GSGMethod(
+                    method.name,
+                    gsg_params,
+                    self.libname,
+                    static=True,
+                    docstring="" if method.doc is None else method.doc.content
+                )
+            )
 
         return res
 
     def gen(self):
         parser = GirParser([GIR_DIR])
-        parser.parse(self.girpath)
+        parser.parse(self.girpath)  # type: ignore
         repo = parser.get_repository()
         assert(repo is not None and repo.namespace is not None)
 
@@ -202,50 +213,15 @@ class GirLib:
             '\nfrom typing import Optional, Any, Tuple, List as PyList\n\n\n'
         )
 
-        gsg_classes = list()
+        # Initialise lists
+        gsg_classes: List[GSGClass] = list()
 
-        # classes
-        for cls in repo.namespace.get_classes():
-            if not cls.name:
-                continue
-            properties = list(cls.properties.keys())
-            inherits = []
-            if len(cls.ancestors) > 0:
-                assert(isinstance(cls.ancestors[0], Class))
-                properties.extend(cls.ancestors[0].properties.keys())
-                inherits.append(cls.ancestors[0].name)
-            for iface in cls.implements:
-                assert(isinstance(iface, Interface))
-                properties.extend(iface.properties.keys())
-                inherits.append(iface.name)
-            init = GSGMethod(
-                '__init__', [
-                    GSGParam(prop, self.libname, default='None')
-                    for prop in properties
-                ], self.libname
-            )
-            methods = [init] + self.extract_methods(cls)
-            cls_o = GSGClass(
-                cls.name, methods, self.libname, inherits
-            )
-            gsg_classes.append(cls_o)
-
-        # unions, records, interfaces
-        records = repo.namespace.get_records()
-        unions = repo.namespace.get_unions()
-        interfaces = repo.namespace.get_interfaces()
-        for structs in (records, unions, interfaces):
-            for struct in structs:
-                if not struct or not struct.name:
-                    continue
-                struct_o = GSGClass(
-                    struct.name, self.extract_methods(struct), self.libname,
-                    fields=[
-                        GSGField(f.name)
-                        for f in struct.fields if f and f.name
-                    ]
-                )
-                gsg_classes.append(struct_o)
+        # constants
+        constants = [
+            GSGField(c.name, c.value).to_str(indent=0)
+            for c in repo.namespace.get_constants() if c and c.name
+        ]
+        stub += '\n' + '\n'.join(constants) + '\n\n'
 
         # enums
         enums = list(repo.namespace.get_enumerations())
@@ -308,16 +284,53 @@ class GirLib:
                         ),
                         default='PRIORITY_DEFAULT'
                     ))
-
         stub += '\n\n\n'.join([f.to_str() for f in gsg_functions])
 
-        # constants
-        constants = [
-            GSGField(c.name, c.value).to_str(indent=0)
-            for c in repo.namespace.get_constants() if c and c.name
-        ]
+        # unions, records, interfaces
+        records = repo.namespace.get_records()
+        unions = repo.namespace.get_unions()
+        interfaces = repo.namespace.get_interfaces()
+        for structs in (records, unions, interfaces):
+            for struct in structs:
+                if not struct or not struct.name:
+                    continue
+                struct_o = GSGClass(
+                    struct.name, self.extract_methods(struct), self.libname,
+                    fields=[
+                        GSGField(f.name)
+                        for f in struct.fields if f and f.name
+                    ]
+                )
+                gsg_classes.append(struct_o)
 
-        stub += '\n\n\n' + '\n'.join(constants)
+        # classes
+        for cls in repo.namespace.get_classes():
+            if not cls.name:
+                continue
+            properties = list(cls.properties.keys())
+            inherits = []
+            if len(cls.ancestors) > 0:
+                assert(isinstance(cls.ancestors[0], Class))
+                properties.extend(cls.ancestors[0].properties.keys())
+                inherits.append(cls.ancestors[0].name)
+            for iface in cls.implements:
+                assert(isinstance(iface, Interface))
+                properties.extend(iface.properties.keys())
+                inherits.append(iface.name)
+            init = GSGMethod(
+                '__init__',
+                [
+                    GSGParam(prop, self.libname, default='None')
+                    for prop in properties
+                ],
+                self.libname,
+                ret_typ="None"
+            )
+            methods = [init] + self.extract_methods(cls)
+            cls_o = GSGClass(
+                cls.name, methods, self.libname, inherits, docstring="" if cls.doc is None else cls.doc.content
+            )
+            gsg_classes.append(cls_o)
 
         stub += '\n\n\n' + self.additional_code
         self.write(stub.strip())

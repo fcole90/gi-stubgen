@@ -7,8 +7,13 @@ from .gsgmethod import GSGMethod
 
 class GSGClass:
     def __init__(
-            self, name: str, methods: List[GSGMethod], module: str,
-            ancestors: List[str] = [], fields: List[GSGField] = []
+        self,
+        name: str,
+        methods: List[GSGMethod],
+        module: str,
+        ancestors: List[str] = [],
+        fields: List[GSGField] = [],
+        docstring: str = "",
     ):
         self.name = name
         self.methods = methods
@@ -19,12 +24,18 @@ class GSGClass:
         ]
         self.fields = fields
         self.manage_special_cases()
+        self.docstring = docstring
 
     def to_str(self, indent: int = 0) -> str:
         res = (indent * '    ') + f'class {self.name}' + (
             f'({", ".join(self.ancestors)})'
             if len(self.ancestors) > 0 else ''
         ) + ':\n'
+        if len(self.docstring) > 0:
+            res += ((indent+1) * '    ') + '"""' + "\n"
+            for line in self.docstring.split("\n"):
+                res += ((indent+1) * '    ') + line + "\n"
+            res += ((indent+1) * '    ') + '"""' + "\n"
         if len(self.methods) <= 0 and len(self.fields) <= 0:
             res += ((indent+1) * '    ') + '...'
             return res

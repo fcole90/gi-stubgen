@@ -7,14 +7,19 @@ from .gsgparam import GSGParam
 
 class GSGMethod(GSGFunction):
     def __init__(
-            self, name: str, params: List[GSGParam], module: str,
-            ret_typ: Optional[str] = None, static: bool = False
+            self,
+            name: str,
+            params: List[GSGParam],
+            module: str,
+            ret_typ: Optional[str] = None,
+            static: bool = False,
+            docstring: str = "",
     ):
         self.static = static
         params.insert(0, GSGParam(
             'cls' if self.static else 'self', module
         ))
-        super().__init__(name, params, module, ret_typ)
+        super().__init__(name, params, module, ret_typ, docstring=docstring)
 
     def to_str(self, indent: int = 1) -> str:
         return (

@@ -1,11 +1,13 @@
-
 from typing import Optional
 
 
 class GSGParam:
     def __init__(
-            self, name: str, module: str, typ: Optional[str] = None,
-            default: Optional[str] = None
+            self, 
+            name: str, 
+            module: str, 
+            typ: Optional[str] = None,
+            default: Optional[str] = None,
     ):
         self.name = name.replace('-', '_')
         self.typ = typ
