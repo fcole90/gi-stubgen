@@ -9,7 +9,8 @@ Requires [gi-docgen](https://gitlab.gnome.org/GNOME/gi-docgen).
 ## Usage
 
 ```bash
-./gen.py
+source ./scripts/venv.sh
+./scripts/generate-stubs.sh
 ```
 
-Point your linter/static analysis tool to the resulting `out` folder.
+Point your linter/static analysis tool to the resulting `.out` folder.

@@ -9,3 +9,6 @@
 
 # Stubs files
 *.pyi
+
+# Cache
+__pycache__
