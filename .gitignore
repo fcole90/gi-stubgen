@@ -1,2 +1,11 @@
-*.pyi
+# Virtualenv
+.venv
+
+# Docs
+.docs
+
+# Output dir
 /out
+
+# Stubs files
+*.pyi
