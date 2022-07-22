@@ -7,6 +7,7 @@
   "python.analysis.autoImportCompletions": true,
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUnknownMemberType": "warning",
+    "reportMissingTypeStubs": "warning"
   },
   "python.analysis.typeCheckingMode": "strict",
   "python.analysis.useLibraryCodeForTypes": true,
@@ -19,7 +20,7 @@
   "python.linting.lintOnSave": true,
   "python.linting.flake8Enabled": true,
   "python.linting.flake8CategorySeverity.E": "Hint",
-  "python.linting.flake8CategorySeverity.F": "Warning",
+  "python.linting.flake8CategorySeverity.F": "Error",
   "python.linting.flake8Args": [
     "--max-line-length=120",
   ],

@@ -8,5 +8,5 @@ if [ -d "$VENV" ]; then
 else
     virtualenv --system-site-packages -p $PYTHON "$VENV"
     . "$VENV"/bin/activate
-    pip install gi-docgen -I
+    python3 -m pip install git+https://gitlab.gnome.org/fcole90/gi-docgen.git -I
 fi

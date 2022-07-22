@@ -1,6 +1,9 @@
 # Virtualenv
 .venv
 
+# Intermediate
+.intermediate
+
 # Docs
 .docs
 
