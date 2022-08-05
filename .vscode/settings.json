@@ -2,6 +2,7 @@
   "editor.autoIndent": "advanced",
   "editor.guides.indentation": true,
   "editor.tabSize": 4,
+  "editor.formatOnSave": true,
   
   "python.analysis.completeFunctionParens": true,
   "python.analysis.autoImportCompletions": true,

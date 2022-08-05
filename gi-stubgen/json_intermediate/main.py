@@ -75,17 +75,17 @@ def generate_intermediate_json(library: str, package: str = "gi.repository") -> 
 
     library_constants = _get_constants(repo)
     library_enums = _get_enums(repo)
+    library_imports = [
+        str(repo.includes[lib].packages[0])
+        for lib in repo.includes
+        if len(repo.includes[lib].packages) > 0
+    ]
+    c_includes = [repo.includes[lib].c_includes[0]
+                  for lib in repo.includes if len(repo.includes[lib].packages) > 0]
 
-    print(
-        # repo.includes, "\n\n",
-        # repo.packages, "\n",
-        # repo.c_includes, "\n",
-        # repo.types, "\n",
-        repo.includes, "\n",
-        # repo.girfile
-        )
-
-    print(library_path)
+    print(library_imports)
+    print(c_includes)
+    print(type(c_includes[0]))
 
     data: JSONIntermediateLib = {
         'library': library,
@@ -94,8 +94,12 @@ def generate_intermediate_json(library: str, package: str = "gi.repository") -> 
         'version': version,
         'package': package,
         'docstring': '',
-        'imports': list(),
+        'imports': library_imports,
         'constants': library_constants,
         'enums': library_enums
     }
+
     _write_json(data)
+
+    # for lib in library_imports:
+    #     generate_intermediate_json(lib)
