@@ -7,20 +7,23 @@ libs = [
     GirLib('cairo-1.0', 'gi.repository.cairo', []),
     GirLib('Atk-1.0', 'gi.repository.Atk', []),
     GirLib('GLib-2.0', 'gi.repository.GLib', []),
-    GirLib('GObject-2.0', 'gi.repository.GObject', ['GLib'], GOBJECT_ADDITIONAL),
+    GirLib('GObject-2.0', 'gi.repository.GObject',
+           ['GLib'], GOBJECT_ADDITIONAL),
     GirLib('Pango-1.0', 'gi.repository.Pango', ['GObject']),
     GirLib('GdkPixbuf-2.0', 'gi.repository.GdkPixbuf', []),
     GirLib('Gio-2.0', 'gi.repository.Gio', ['GObject', 'GLib']),
-    GirLib('Gdk-3.0', 'gi.repository.Gdk', ['cairo', 'GdkPixbuf', 'Gio', 'GLib', 'GObject']),
-    GirLib('Gtk-3.0', 'gi.repository.Gtk', ['Gdk', 'Gio', 'GLib', 'GObject', 'Pango', 'GdkPixbuf', 'Atk'], GTK_ADDITIONAL),
+    GirLib('Gdk-3.0', 'gi.repository.Gdk',
+           ['cairo', 'GdkPixbuf', 'Gio', 'GLib', 'GObject']),
+    GirLib('Gtk-3.0', 'gi.repository.Gtk',
+           ['Gdk', 'Gio', 'GLib', 'GObject', 'Pango', 'GdkPixbuf', 'Atk'], GTK_ADDITIONAL),
     GirLib('WebKit2-4.1', 'gi.repository.WebKit2'),
-    
 
-    
-    
+
+
+
     # GirLib('Gdk-4.0', 'gi.repository.Gdk', ['Gio', 'GLib', 'GObject']),
-    
-    
+
+
 
 
     # GirLib('Adw-1', 'gi.repository.Adw', [

@@ -1,3 +1,4 @@
+
 from gidocgen.gir.ast import Repository
 from gidocgen.gir.parser import GirParser
 

@@ -1,5 +1,6 @@
 from typing import TypedDict, Literal
 from gidocgen.gir.ast import Doc, Member
+from .utils import infer_type, to_inferred_type
 
 
 def doc2str(doc: Doc | None) -> str:
@@ -11,7 +12,8 @@ def doc2str(doc: Doc | None) -> str:
 class LibConstant(TypedDict):
     type: Literal["constant"]
     name: str
-    value: str
+    value: str | float | int
+    value_type: str
     docstring: str
 
 
@@ -19,7 +21,8 @@ def make_constant(name: str, value: str, docstring: str = "") -> LibConstant:
     return {
         "type": "constant",
         "name": name,
-        "value": value,
+        "value": to_inferred_type(value),
+        "value_type": infer_type(value),
         "docstring": docstring
     }
 
@@ -37,11 +40,13 @@ def make_enum(name: str, members: list[Member], docstring: str) -> LibEnum:
         "name": name,
         "docstring": docstring,
         "members": [
-            make_constant(name=member.name, value=member.value)
+            make_constant(
+                name=member.name,
+                value=member.value,
+            )
             for member in members if member and member.name
         ]
     }
-
 
 
 class JSONIntermediateLib(TypedDict):

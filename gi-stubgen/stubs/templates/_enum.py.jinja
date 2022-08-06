@@ -1,0 +1,12 @@
+{% import "_constant.py.jinja" as constant_t -%}
+{% macro gen(enum) -%}
+class {{ enum["name"] }}(Enum):
+{%- if enum["docstring"]|length > 0 %}
+    """
+    {{ enum["docstring"]|indent( width=4) }}
+    """
+{%- endif -%}
+{%- for const in enum["members"] %}
+    {{constant_t.gen(const)}}
+{%- endfor -%}
+{%- endmacro -%}

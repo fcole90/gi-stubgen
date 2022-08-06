@@ -2,7 +2,7 @@
 from os import path
 from typing import Mapping, List
 from .json_intermediate.main import generate_intermediate_json
-from .json_intermediate import writer
+from .json_intermediate.io import write_json
 from .utils import get_files
 
 
@@ -40,7 +40,7 @@ def get_gir_mappings(library_path: str) -> Mapping[str, str]:
 
 def generation_loop(lib: str, gir_mapping: Mapping[str, str], missing_libs: List[str]):
     data = generate_intermediate_json(lib, GIR_DIR)
-    json_file_path = writer.write_json(data, OUTPUT_DIR)
+    json_file_path = write_json(data, OUTPUT_DIR)
     print(f"Generated {json_file_path}\n")
 
     print("Retrieving deps for " + lib)

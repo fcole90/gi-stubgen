@@ -7,7 +7,7 @@ GIR_DIR = '/usr/share/gir-1.0'
 
 
 def main():
-    data = generate_intermediate_json("cairo-1.0", GIR_DIR)
+    data = generate_intermediate_json("Gtk-3.0", GIR_DIR)
     data_summary = {
         'library': data['library'],
         'libraryPath': data['libraryPath'],

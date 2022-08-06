@@ -1,0 +1,8 @@
+{% macro gen(const) -%}
+{{ const["name"] }} = {% if const["value_type"] != "str" %}{{ const["value"] }}{% else %}"{{ const["value"] }}"{% endif %}
+{%- if const["docstring"]|length > 0 %}
+"""
+{{ const["docstring"] }}
+"""
+{%- endif -%}
+{%- endmacro -%}

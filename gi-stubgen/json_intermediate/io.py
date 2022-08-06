@@ -14,3 +14,7 @@ def write_json(data: JSONIntermediateLib, output_dir: str) -> str:
     with open(path.join(output_dir, json_file_name), 'w') as fp:
         json.dump(data, fp, indent=2)
     return json_file_path
+
+def read_json(file_path: str) -> JSONIntermediateLib:
+    with open(file_path) as fp:
+        return json.load(fp)
