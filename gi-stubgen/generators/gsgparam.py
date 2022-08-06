@@ -3,9 +3,9 @@ from typing import Optional
 
 class GSGParam:
     def __init__(
-            self, 
-            name: str, 
-            module: str, 
+            self,
+            name: str,
+            module: str,
             typ: Optional[str] = None,
             default: Optional[str] = None,
     ):

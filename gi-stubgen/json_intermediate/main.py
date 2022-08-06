@@ -1,7 +1,3 @@
-from os import makedirs, path
-
-import json
-
 from gidocgen.gir.ast import Repository
 from gidocgen.gir.parser import GirParser
 
@@ -9,14 +5,6 @@ from .types import JSONIntermediateLib, LibConstant, LibEnum, make_constant, mak
 
 GIR_DIR = '/usr/share/gir-1.0'
 OUTPUT_DIR = '.intermediate'
-
-
-def _write_json(data: JSONIntermediateLib) -> None:
-    if not path.isdir(OUTPUT_DIR):
-        makedirs(OUTPUT_DIR)
-    json_file_name = data['library'] + '.json'
-    with open(path.join(OUTPUT_DIR, json_file_name), 'w') as fp:
-        json.dump(data, fp, indent=2)
 
 
 def _load_gir_parser(library_path: str) -> Repository:
@@ -65,31 +53,26 @@ def _get_enums(repo: Repository) -> list[LibEnum]:
     ]
 
 
-def generate_intermediate_json(library: str, package: str = "gi.repository") -> None:
+def generate_intermediate_json(library: str,  library_path: str, package: str = "gi.repository") -> JSONIntermediateLib:
     name, version = library.split('-')
-    library_path = f'{GIR_DIR}/{library}.gir'
+    gir_lib_path = f'{library_path}/{library}.gir'
 
     print(f"Loading parser for {library}...", end=" ")
-    repo: Repository = _load_gir_parser(library_path)
+    repo: Repository = _load_gir_parser(gir_lib_path)
     print("Done")
 
     library_constants = _get_constants(repo)
     library_enums = _get_enums(repo)
     library_imports = [
-        str(repo.includes[lib].packages[0])
+        package
         for lib in repo.includes
+        for package in repo.includes[lib].packages
         if len(repo.includes[lib].packages) > 0
     ]
-    c_includes = [repo.includes[lib].c_includes[0]
-                  for lib in repo.includes if len(repo.includes[lib].packages) > 0]
-
-    print(library_imports)
-    print(c_includes)
-    print(type(c_includes[0]))
 
     data: JSONIntermediateLib = {
         'library': library,
-        'libraryPath': library_path,
+        'libraryPath': gir_lib_path,
         'name': name,
         'version': version,
         'package': package,
@@ -99,7 +82,4 @@ def generate_intermediate_json(library: str, package: str = "gi.repository") -> 
         'enums': library_enums
     }
 
-    _write_json(data)
-
-    # for lib in library_imports:
-    #     generate_intermediate_json(lib)
+    return data
