@@ -49,6 +49,35 @@ def make_enum(name: str, members: list[Member], docstring: str) -> LibEnum:
     }
 
 
+class LibFunctionArg(TypedDict):
+    name: str
+    type: str
+    is_optional: bool
+
+
+class LibFunction(TypedDict):
+    type: Literal["function"]
+    docstring: str
+    name: str
+    args: list[LibFunctionArg]
+    return_type: str
+
+
+def make_function(
+    name: str,
+    args: list[LibFunctionArg],
+    return_type: str,
+    docstring: str
+) -> LibFunction:
+    return {
+        "type": "function",
+        "name": name,
+        "docstring": docstring,
+        "args": args,
+        "return_type": return_type
+    }
+
+
 class JSONIntermediateLib(TypedDict):
     library: str
     libraryPath: str
@@ -58,4 +87,5 @@ class JSONIntermediateLib(TypedDict):
     imports: list[str]
     constants: list[LibConstant]
     enums: list[LibEnum]
+    functions: list[LibFunction]
     docstring: str

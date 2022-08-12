@@ -2,7 +2,7 @@
 from gidocgen.gir.ast import Repository
 from gidocgen.gir.parser import GirParser
 
-from .types import JSONIntermediateLib, LibConstant, LibEnum, make_constant, make_enum, doc2str
+from .types import JSONIntermediateLib, LibConstant, LibEnum, LibFunction, make_constant, make_enum, make_function, doc2str
 
 GIR_DIR = '/usr/share/gir-1.0'
 OUTPUT_DIR = '.intermediate'
@@ -54,6 +54,30 @@ def _get_enums(repo: Repository) -> list[LibEnum]:
     ]
 
 
+def _get_functions(repo: Repository) -> list[LibFunction]:
+    if repo.namespace is None:
+        return []
+
+    return [
+        make_function(
+            name=fun.name,
+            args=[
+                {
+                    "name": arg.name,
+                    "type": arg.target.name if arg.target.name is not None else "Unknown",
+                    "is_optional": arg.optional
+                }
+                for arg in fun.parameters
+                if arg.name is not None
+            ],
+            return_type=fun.return_value.target.name if fun.return_value is not None and fun.return_value.target.name is not None else "None",
+            docstring=doc2str(fun.doc)
+        )
+        for fun in list(repo.namespace.get_functions())
+        if fun.name is not None
+    ]
+
+
 def generate_intermediate_json(library: str,  library_path: str, package: str = "gi.repository") -> JSONIntermediateLib:
     name, version = library.split('-')
     gir_lib_path = f'{library_path}/{library}.gir'
@@ -64,12 +88,15 @@ def generate_intermediate_json(library: str,  library_path: str, package: str = 
 
     library_constants = _get_constants(repo)
     library_enums = _get_enums(repo)
-    library_imports = [
-        package
-        for lib in repo.includes
-        for package in repo.includes[lib].packages
-        if len(repo.includes[lib].packages) > 0
-    ]
+    library_functions = _get_functions(repo)
+    library_imports = list(repo.includes.keys())
+
+    # print("---")
+    # print(repo.includes)
+    # print(repo.includes[list(repo.includes.keys())[0]].types)
+    # print(repo.includes[list(repo.includes.keys())[0]].includes)
+    # print(repo.includes[list(repo.includes.keys())[0]].girfile)
+    # print("---")
 
     data: JSONIntermediateLib = {
         'library': library,
@@ -80,6 +107,7 @@ def generate_intermediate_json(library: str,  library_path: str, package: str = 
         'docstring': '',
         'imports': library_imports,
         'constants': library_constants,
+        'functions': library_functions,
         'enums': library_enums
     }
 

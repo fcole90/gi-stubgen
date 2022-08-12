@@ -3,7 +3,7 @@ from os import path
 from typing import Mapping, List
 from .json_intermediate.main import generate_intermediate_json
 from .json_intermediate.io import write_json
-from .utils import get_files
+from .utils import get_gir_mappings
 
 
 OUTPUT_DIR = '.intermediate'
@@ -18,24 +18,6 @@ def main():
     print("Generation completed!")
     if len(missing_libs) > 0:
         print("Could not find girs for:", missing_libs)
-
-
-def get_gir_mappings(library_path: str) -> Mapping[str, str]:
-    gir_files = get_files(library_path)
-    low_case_names = [
-        '.'.join(gir.split('.')[:-1]).lower()
-        for gir in gir_files
-    ]
-
-    low_case_names_no_version = [
-        '-'.join(name.split('-')[:-1]).lower()
-        for name in low_case_names
-    ]
-
-    return {
-        name: '.'.join(gir.split('.')[:-1])
-        for name, gir in zip(low_case_names + low_case_names_no_version, gir_files + gir_files)
-    }
 
 
 def generation_loop(lib: str, gir_mapping: Mapping[str, str], missing_libs: List[str]):

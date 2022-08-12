@@ -1,0 +1,18 @@
+
+{% macro args_gen(args) -%}
+{%- set args_gen_str_list = [] -%}
+{%- for arg in args -%}
+{% set _ = args_gen_str_list.append( arg.name+": "+arg.type ) %}
+{%- endfor -%}
+{{ args_gen_str_list|join(', ') }}
+{%- endmacro -%}
+
+{%- macro gen(fun) -%}
+def {{ fun["name"] }}({{args_gen(fun.args)}}) -> {{ fun["return_type"] }}:
+{%- if fun["docstring"]|length > 0 %}
+    """
+    {{ fun["docstring"]|indent( width=4) }}
+    """
+{%- endif %}
+    ...
+{%- endmacro -%}
