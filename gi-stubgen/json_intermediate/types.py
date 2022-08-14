@@ -52,7 +52,8 @@ def make_enum(name: str, members: list[Member], docstring: str) -> LibEnum:
 class LibFunctionArg(TypedDict):
     name: str
     type: str
-    is_optional: bool
+    is_optional: bool  # Optional[type]
+    is_nullable: bool  # Union[type, None]
 
 
 class LibFunction(TypedDict):

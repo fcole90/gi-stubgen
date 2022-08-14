@@ -15,7 +15,7 @@ def generate_lib_stub(data: JSONIntermediateLib):
         gen_name=PKG_NAME,
         constants=data["constants"][:5],
         enums=data["enums"][:1],
-        functions=data["functions"][:2],
+        functions=data["functions"][:10],
         imports=[{
             "from": "enum",
             "imports": ["Enum"]

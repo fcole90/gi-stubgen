@@ -1,0 +1,45 @@
+    'gint8'
+    'guint8'
+    'int8_t'
+    'uint8_t',
+    'gint16'
+    'guint16'
+    'int16_t'
+    'uint16_t',
+    'gint32'
+    'guint32'
+    'int32_t'
+    'uint32_t',
+    'gint64'
+    'guint64'
+    'int64_t'
+    'uint64_t',
+    'gint'
+    'int',
+    'guint'
+    'unsigned'
+    'unsigned int',
+    'gfloat'
+    'float',
+    'gdouble'
+    'double'
+    'long double',
+    'gchar'
+    'guchar'
+    'char'
+    'unsigned char',
+    'gshort'
+    'gushort'
+    'short'
+    'unsigned short',
+    'glong'
+    'gulong'
+    'long'
+    'unsigned long',
+    'gunichar',
+    'gsize'
+    'gssize'
+    'size_t',
+    'gboolean'
+    'bool',
+    'va_list',

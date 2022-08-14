@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-python3 -m gi-stubgen.gen
+python3 -m gi-stubgen.stub_gen
