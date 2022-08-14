@@ -6,29 +6,29 @@ from .utils import infer_type, to_inferred_type
 def doc2str(doc: Doc | None) -> str:
     if doc and doc.content:
         return doc.content
-    return ""
+    return ''
 
 
 class LibConstant(TypedDict):
-    type: Literal["constant"]
+    type: Literal['constant']
     name: str
     value: str | float | int
     value_type: str
     docstring: str
 
 
-def make_constant(name: str, value: str, docstring: str = "") -> LibConstant:
+def make_constant(name: str, value: str, docstring: str = '') -> LibConstant:
     return {
-        "type": "constant",
-        "name": name,
-        "value": to_inferred_type(value),
-        "value_type": infer_type(value),
-        "docstring": docstring
+        'type': 'constant',
+        'name': name,
+        'value': to_inferred_type(value),
+        'value_type': infer_type(value),
+        'docstring': docstring
     }
 
 
 class LibEnum(TypedDict):
-    type: Literal["enum"]
+    type: Literal['enum']
     docstring: str
     name: str
     members: list[LibConstant]
@@ -36,10 +36,10 @@ class LibEnum(TypedDict):
 
 def make_enum(name: str, members: list[Member], docstring: str) -> LibEnum:
     return {
-        "type": "enum",
-        "name": name,
-        "docstring": docstring,
-        "members": [
+        'type': 'enum',
+        'name': name,
+        'docstring': docstring,
+        'members': [
             make_constant(
                 name=member.name,
                 value=member.value,
@@ -57,7 +57,7 @@ class LibFunctionArg(TypedDict):
 
 
 class LibFunction(TypedDict):
-    type: Literal["function"]
+    type: Literal['function']
     docstring: str
     name: str
     args: list[LibFunctionArg]
@@ -71,11 +71,37 @@ def make_function(
     docstring: str
 ) -> LibFunction:
     return {
-        "type": "function",
-        "name": name,
-        "docstring": docstring,
-        "args": args,
-        "return_type": return_type
+        'type': 'function',
+        'name': name,
+        'docstring': docstring,
+        'args': args,
+        'return_type': return_type
+    }
+
+
+class LibClass(TypedDict):
+    type: Literal['class']
+    docstring: str
+    name: str
+    is_abstract: bool
+    constructors: list[LibFunction]
+    methods: list[LibFunction]
+
+
+def make_class(
+        name: str,
+        is_abstract: bool,
+        constructors: list[LibFunction],
+        methods: list[LibFunction],
+        docstring: str
+) -> LibClass:
+    return {
+        'type': 'class',
+        'name': name,
+        'docstring': docstring,
+        'is_abstract': is_abstract,
+        'constructors': constructors,
+        'methods': methods
     }
 
 
@@ -86,7 +112,20 @@ class JSONIntermediateLib(TypedDict):
     version: str
     package: str
     imports: list[str]
+    import_girs: list[str]
     constants: list[LibConstant]
     enums: list[LibEnum]
     functions: list[LibFunction]
+    classes: list[LibClass]
     docstring: str
+
+
+class TestClass:
+    def __init__(self):
+        ...
+
+    def getTest(self) -> str:
+        ...
+
+    def setTest(self, t: str):
+        ...

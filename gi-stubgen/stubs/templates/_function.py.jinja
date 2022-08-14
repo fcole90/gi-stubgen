@@ -10,16 +10,21 @@ _T.Optional[{{type}}]
 {% macro args_gen(args) -%}
 {%- set args_gen_str_list = [] -%}
 {%- for arg in args -%}
-{% set _ = args_gen_str_list.append( arg.name + ": " + opt_check(arg.type, arg.is_nullable, is_optional) ) %}
+{%- if arg.type|length > 0 -%}
+{% set _ = args_gen_str_list.append(arg.name + ": " + opt_check(arg.type, arg.is_nullable, is_optional)) %}
+{%- else -%}
+{% set _ = args_gen_str_list.append(arg.name) %}
+{%- endif -%}
 {%- endfor -%}
 {{ args_gen_str_list|join(', ') }}
 {%- endmacro -%}
 
+
 {%- macro gen(fun) -%}
-def {{ fun.name }}({{ args_gen(fun.args) }}) -> {{ fun.return_type }}:
+def {{ fun.name }}({{ args_gen(fun.args) }}){%- if fun.return_type|length > 0 %} -> {{ fun.return_type }}{%- endif -%}:
 {%- if fun.docstring|length > 0 %}
     """
-    {{ fun.docstring|indent( width=4) }}
+    {{ fun.docstring|indent(width=4) }}
     """
 {%- endif %}
     ...

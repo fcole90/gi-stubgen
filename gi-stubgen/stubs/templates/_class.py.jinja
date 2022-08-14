@@ -1,0 +1,22 @@
+{%- import "_function.py.jinja" as function_t -%}
+
+{%- macro gen(cls) -%}
+class {{ cls.name }}:
+{%- if cls.docstring|length > 0 %}
+    """
+    {{ cls.docstring|indent( width=4) }}
+    """
+{%- endif %}
+{% for c in cls.constructors -%}
+{%- if c.name != '__init__' %}
+    @classmethod
+{%- endif %}
+{{ function_t.gen(c)|indent(width=4, first=true) }}
+
+{% endfor -%}
+{%- for m in cls.methods -%}
+{{ function_t.gen(m)|indent(width=4, first=true) }}
+
+{% endfor %}
+    ...
+{%- endmacro -%}
