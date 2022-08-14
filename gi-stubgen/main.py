@@ -3,7 +3,6 @@ from os import path
 from typing import Optional
 from .json_intermediate.main import generate_intermediate_json
 from .json_intermediate.io import write_json
-from .utils import get_gir_mappings
 
 
 OUTPUT_DIR = '.intermediate'

@@ -83,6 +83,7 @@ class LibClass(TypedDict):
     type: Literal['class']
     docstring: str
     name: str
+    inherited_classes: list[str]
     is_abstract: bool
     constructors: list[LibFunction]
     methods: list[LibFunction]
@@ -91,6 +92,7 @@ class LibClass(TypedDict):
 def make_class(
         name: str,
         is_abstract: bool,
+        inherited_classes: list[str],
         constructors: list[LibFunction],
         methods: list[LibFunction],
         docstring: str
@@ -98,6 +100,7 @@ def make_class(
     return {
         'type': 'class',
         'name': name,
+        'inherited_classes': inherited_classes,
         'docstring': docstring,
         'is_abstract': is_abstract,
         'constructors': constructors,

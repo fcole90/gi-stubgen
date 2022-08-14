@@ -136,6 +136,12 @@ def _get_classes(repo: Repository, lib_name: str) -> list[LibClass]:
             name=cls.name,
             docstring=doc2str(cls.doc),
             is_abstract=cls.abstract,
+            inherited_classes=[
+                _get_type_str(cls.parent, lib_name)
+            ] + [
+                _get_type_str(im, lib_name)
+                for im in cls.implements
+            ],
             constructors=[
                 # __init__
                 make_function(
@@ -252,6 +258,11 @@ def generate_intermediate_json(library: str,  library_path: str, package: str = 
     #     print([(p.name, p.target.name)
     #            for p in list(mtd.parameters)])
 
+    # exit()
+
+    # print(list(repo.namespace.get_classes())[0].name)
+    # print(list(repo.namespace.get_classes())[0].implements)
+    # print(list(repo.namespace.get_classes())[0].parent)
     # exit()
 
     data: JSONIntermediateLib = {

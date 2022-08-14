@@ -1,7 +1,7 @@
 {%- import "_function.py.jinja" as function_t -%}
 
 {%- macro gen(cls) -%}
-class {{ cls.name }}:
+class {{ cls.name }}{%- if cls.inherited_classes|length > 0 %}({{ cls.inherited_classes|join(', ') }}){%- endif %}:
 {%- if cls.docstring|length > 0 %}
     """
     {{ cls.docstring|indent( width=4) }}
